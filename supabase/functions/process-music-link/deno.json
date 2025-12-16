@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "types": ["https://deno.land/x/deno/types/index.d.ts"]
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.8",
+    "djwt": "https://deno.land/x/djwt@v2.7/mod.ts"
+  }
+}

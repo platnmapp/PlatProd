@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Music Authentication</title>
+    <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        .logo {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+        .auth-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .auth-btn:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+        .auth-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .success {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        .error {
+            background: rgba(244, 67, 54, 0.3);
+        }
+        .loading {
+            background: rgba(255, 193, 7, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🎵</div>
+        <h1>Connect Apple Music</h1>
+        <p>Authenticate with your Apple Music account to continue</p>
+        
+        <button id="authBtn" class="auth-btn" onclick="authenticateAppleMusic()">
+            Sign in with Apple Music
+        </button>
+        
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        let musicKit;
+        let developerToken;
+
+        // Get developer token from URL parameters
+        function getDeveloperToken() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('developerToken');
+        }
+
+        // Initialize MusicKit
+        async function initializeMusicKit() {
+            try {
+                developerToken = getDeveloperToken();
+                
+                if (!developerToken) {
+                    showStatus('Error: No developer token provided', 'error');
+                    return;
+                }
+
+                // Configure MusicKit
+                await MusicKit.configure({
+                    developerToken: developerToken,
+                    app: {
+                        name: 'Platnm',
+                        build: '1.0.0'
+                    }
+                });
+
+                musicKit = MusicKit.getInstance();
+                showStatus('MusicKit initialized successfully', 'success');
+                
+            } catch (error) {
+                console.error('MusicKit initialization error:', error);
+                showStatus('Failed to initialize MusicKit: ' + error.message, 'error');
+            }
+        }
+
+        // Authenticate with Apple Music
+        async function authenticateAppleMusic() {
+            if (!musicKit) {
+                showStatus('MusicKit not initialized', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Authenticating with Apple Music...', 'loading');
+                document.getElementById('authBtn').disabled = true;
+
+                // Request authorization
+                await musicKit.authorize();
+                
+                // Get user token
+                const userToken = musicKit.musicUserToken;
+                
+                if (userToken) {
+                    showStatus('Authentication successful!', 'success');
+                    
+                    // Redirect back to app with the user token
+                    const callbackUrl = `platnm://musicauth/callback?userToken=${encodeURIComponent(userToken)}&success=true`;
+                    
+                    // Try to redirect back to the app
+                    setTimeout(() => {
+                        window.location.href = callbackUrl;
+                    }, 1000);
+                    
+                } else {
+                    showStatus('Authentication failed: No user token received', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showStatus('Authentication failed: ' + error.message, 'error');
+            } finally {
+                document.getElementById('authBtn').disabled = false;
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeMusicKit);
+    </script>
+</body>
+</html>

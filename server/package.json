@@ -1,0 +1,28 @@
+{
+  "name": "apple-music-jwt-server",
+  "version": "1.0.0",
+  "description": "JWT token generation server for Apple Music API",
+  "main": "apple-music-jwt.js",
+  "scripts": {
+    "start": "node apple-music-jwt.js",
+    "dev": "nodemon apple-music-jwt.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "apple-music",
+    "jwt",
+    "token",
+    "api"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
