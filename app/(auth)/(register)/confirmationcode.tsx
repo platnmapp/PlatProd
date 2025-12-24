@@ -50,14 +50,37 @@ export default function ConfirmationCodeScreen() {
         console.log("Sending OTP to:", email);
         setSending(true);
         setOtpSent(true);
-        const result = await signInWithEmail(email);
-        const { error } = result || {};
-        setSending(false);
-        if (error) {
-          console.error("Failed to send OTP:", error);
-          setError(error.message || "Failed to send OTP.");
-        } else {
-          console.log("OTP sent successfully");
+        try {
+          const result = await signInWithEmail(email);
+          const { error } = result || {};
+          setSending(false);
+          if (error) {
+            console.error("Failed to send OTP:", error);
+            // Create detailed error message for debugging
+            const errorDetails = JSON.stringify({
+              message: error.message,
+              name: error.name,
+              status: error.status,
+              fullError: error,
+            }, null, 2);
+            console.error("Full error details:", errorDetails);
+            setError(
+              error.message || "Failed to send OTP. Check console for details."
+            );
+          } else {
+            console.log("OTP sent successfully");
+          }
+        } catch (err: any) {
+          setSending(false);
+          const errorDetails = JSON.stringify({
+            message: err?.message,
+            name: err?.name,
+            stack: err?.stack,
+          }, null, 2);
+          console.error("Exception in sendOtpOnLoad:", errorDetails);
+          setError(
+            `Error: ${err?.message || "Unknown error"}. Check console for full details.`
+          );
         }
       }
     };
@@ -285,7 +308,29 @@ export default function ConfirmationCodeScreen() {
           ))}
         </View>
 
-        {error && <Text className="text-red-500 mt-4">{error}</Text>}
+        {error && (
+          <View className="mt-4">
+            <Text className="text-red-500 mb-2">{error}</Text>
+            <Pressable
+              onPress={() => {
+                // Log full error details to console for easy copying
+                console.log("=== FULL ERROR DETAILS FOR DEBUGGING ===");
+                console.log("Error message:", error);
+                console.log("Email:", email);
+                console.log("Supabase URL:", process.env.EXPO_PUBLIC_SUPABASE_URL);
+                Alert.alert(
+                  "Error Details",
+                  "Full error details have been logged to the console. Please check your terminal/console and copy the error logs starting from '=== FULL ERROR DETAILS FOR DEBUGGING ==='"
+                );
+              }}
+              className="mt-2"
+            >
+              <Text className="text-blue-400 text-xs underline">
+                Tap to log full error details to console
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Verify button */}
         <Pressable

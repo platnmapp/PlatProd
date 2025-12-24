@@ -67,32 +67,6 @@ export default function CarouselScreen() {
       <View className="absolute bottom-4 left-0 right-0">
         {renderIndicators()}
       </View>
-
-      {/* Debug: Navigation buttons for testing (remove in production) */}
-      {__DEV__ && (
-        <View className="absolute top-20 right-4 flex-col gap-2">
-          <Pressable
-            onPress={() => {
-              if (currentIndex > 0) {
-                carouselRef.current?.prev();
-              }
-            }}
-            className="bg-blue-500 px-3 py-2 rounded"
-          >
-            <Text className="text-white text-xs">Prev</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              if (currentIndex < carouselData.length - 1) {
-                carouselRef.current?.next();
-              }
-            }}
-            className="bg-blue-500 px-3 py-2 rounded"
-          >
-            <Text className="text-white text-xs">Next</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }

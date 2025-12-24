@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { NativeModules } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { CacheService } from "../../lib/cacheService";
 import { supabase } from "../../lib/supabase";
+
+// Complete the OAuth session when the browser is closed
+WebBrowser.maybeCompleteAuthSession();
 
 const { SharedUserDefaults } = NativeModules;
 
@@ -42,6 +46,7 @@ const storeSessionData = (session: any) => {
 interface AuthContextData {
   signInWithEmail: (email: string) => Promise<{ error: any } | void>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: any } | void>;
+  signInWithApple: () => Promise<{ error: any } | void>;
   verifyOtp: (email: string, token: string) => Promise<{ error: any } | void>;
   signOut: () => Promise<void>;
   forceSignOut: () => Promise<void>;
@@ -241,8 +246,72 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithEmail = async (email: string) => {
     // Don't set global loading state for OTP sending
     // This prevents navigation resets during auth flows
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    return { error };
+    try {
+      console.log("📧 Attempting to send OTP to:", email);
+      console.log("🔗 Supabase URL:", process.env.EXPO_PUBLIC_SUPABASE_URL || "not found in process.env");
+      
+      const { error, data } = await supabase.auth.signInWithOtp({ 
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: undefined, // Don't use magic link, use OTP code
+        }
+      });
+      
+      if (error) {
+        console.error("❌ OTP send error:", {
+          message: error.message,
+          name: error.name,
+          status: error.status,
+        });
+        
+        // Provide more helpful error messages
+        if (error.message?.includes("Network request failed") || 
+            error.message?.includes("fetch") ||
+            error.name === "AuthRetryableFetchError") {
+          return { 
+            error: { 
+              ...error, 
+              message: "Network error. Please check your internet connection and ensure the Supabase service is accessible. If the problem persists, try restarting the app." 
+            } 
+          };
+        }
+        
+        // Check for specific Supabase errors
+        if (error.message?.includes("Invalid API key")) {
+          return {
+            error: {
+              ...error,
+              message: "Configuration error. Please check your Supabase credentials.",
+            }
+          };
+        }
+      } else {
+        console.log("✅ OTP sent successfully:", data);
+      }
+      
+      return { error };
+    } catch (err: any) {
+      console.error("❌ Exception in signInWithEmail:", {
+        message: err?.message,
+        name: err?.name,
+        stack: err?.stack,
+      });
+      
+      // Handle network errors more gracefully
+      if (err?.message?.includes("Network request failed") || 
+          err?.name === "AuthRetryableFetchError" ||
+          err?.message?.includes("fetch")) {
+        return { 
+          error: { 
+            message: "Network error. Please check your internet connection and ensure the Supabase service is accessible. If the problem persists, try restarting the app.",
+            name: err.name,
+          } 
+        };
+      }
+      
+      return { error: err };
+    }
   };
 
   const signInWithPassword = async (email: string, password: string) => {
@@ -257,6 +326,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       setIsLoading(false);
       return { error };
+    }
+  };
+
+  const signInWithApple = async () => {
+    setIsLoading(true);
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const redirectUrl = `${supabaseUrl}/auth/v1/callback`;
+      
+      console.log("🍎 Starting Apple sign in...");
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: false,
+        },
+      });
+
+      if (error) {
+        console.error("❌ Apple sign in error:", error);
+        setIsLoading(false);
+        return { error };
+      }
+
+      if (data?.url) {
+        // Open the OAuth URL in the browser
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+
+        if (result.type === 'success') {
+          // Extract the access token from the URL
+          const url = new URL(result.url);
+          const accessToken = url.searchParams.get('access_token');
+          const refreshToken = url.searchParams.get('refresh_token');
+
+          if (accessToken && refreshToken) {
+            // Set the session with the tokens
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (sessionError) {
+              console.error("❌ Error setting session:", sessionError);
+              setIsLoading(false);
+              return { error: sessionError };
+            }
+          }
+        } else if (result.type === 'cancel') {
+          console.log("🍎 Apple sign in cancelled");
+          setIsLoading(false);
+          return { error: { message: "Sign in cancelled" } };
+        } else {
+          console.error("❌ Apple sign in failed:", result);
+          setIsLoading(false);
+          return { error: { message: "Sign in failed" } };
+        }
+      }
+
+      setIsLoading(false);
+      return { error: null };
+    } catch (error) {
+      console.error("❌ Exception in signInWithApple:", error);
+      setIsLoading(false);
+      return { 
+        error: error instanceof Error ? error : { message: "Failed to sign in with Apple" }
+      };
     }
   };
 
@@ -336,35 +475,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     setIsLoading(true);
     try {
-      // Get the session token for the edge function
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // Call the database function to delete the account
+      const { error } = await supabase.rpc("delete_user_account");
 
-      if (!session) {
+      if (error) {
+        console.error("Error deleting account:", error);
         setIsLoading(false);
-        return { error: { message: "No active session" } };
-      }
-
-      // Call the edge function to delete the account
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/delete-account`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error("Error deleting account:", result);
-        setIsLoading(false);
-        return { error: result.error || { message: "Failed to delete account" } };
+        return { error: { message: error.message || "Failed to delete account" } };
       }
 
       // Sign out after successful deletion
@@ -390,6 +507,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         signInWithEmail,
         signInWithPassword,
+        signInWithApple,
         verifyOtp,
         signOut,
         forceSignOut,

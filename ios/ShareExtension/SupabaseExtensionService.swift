@@ -23,8 +23,8 @@ struct SessionData: Codable {
 }
 
 class SupabaseExtensionService {
-    private let supabaseUrl = "https://cmualmraxvkpatfsrbev.supabase.co"
-    private let supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtdWFsbXJheHZrcGF0ZnNyYmV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MjQ1NzQsImV4cCI6MjA2NzAwMDU3NH0.ciCcLro2Bg4q4SbSudIvxduCNjnr2yJE6d49jPhnQcE"
+    private let supabaseUrl = "https://uirmafqpkulwkkpyfmrj.supabase.co"
+    private let supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcm1hZnFwa3Vsd2trcHlmbXJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4MDEwMjMsImV4cCI6MjA4MDM3NzAyM30.OwH5ZtpySBNAXaV4-C1Am1-oLJi42RoXc_3yqgQo-PI"
     private let appGroupId = "group.com.platnm.app.v2"
     
     private lazy var supabaseClient: SupabaseClient = {
